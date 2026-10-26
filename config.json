@@ -1,11 +1,5 @@
 {
-  "provider": "github",
-  "github": {
-    "owner": "seu_usuario_github",
-    "repo": "soundpad",
-    "token": "ghp_seu_token_aqui",
-    "branch": "main",
-    "sounds_dir": "sounds"
-  },
+  "provider": "worker",
+  "worker_url": "https://SEU_WORKER.workers.dev",
   "volume": 0.7
 }
