@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+"""
+Phantom Soundpad — rework completo
+Fixes: window.close() GTK, /set split bug, upload parsing, path traversal guard,
+       AudioContext leak, decodeAudioData promise, /play double-list call,
+       drag-and-drop upload, loading states, playing indicator, error responses.
+"""
 import json
 import os
 import subprocess
@@ -101,17 +107,26 @@ class AudioEngine:
         parts = []
         if self.pitch != 0:
             ratio = 2 ** (self.pitch / 12)
+            # asetrate must be a plain integer — ffmpeg doesn't evaluate expressions here
+            new_rate = int(44100 * ratio)
+            # atempo compensates for the tempo shift introduced by asetrate;
+            # valid range for atempo is [0.5, 2.0]
+            tempo_fix = max(0.5, min(2.0, 1.0 / ratio))
             parts += [
-                f"asetrate=44100*{ratio:.4f}",
+                f"asetrate={new_rate}",
                 "aresample=44100",
-                f"atempo={1/ratio:.4f}",
+                f"atempo={tempo_fix:.4f}",
             ]
         if self.speed != 1.0:
-            parts.append(f"atempo={self.speed:.4f}")
+            # clamp to atempo's valid range
+            spd = max(0.5, min(2.0, self.speed))
+            parts.append(f"atempo={spd:.4f}")
         if self.bass != 0:
-            parts.append(f"bass=g={self.bass}")
+            # low-shelf boost/cut at 100 Hz — works on all modern ffmpeg builds
+            parts.append(f"equalizer=f=100:width_type=o:width=2:g={self.bass:.1f}")
         if self.treble != 0:
-            parts.append(f"treble=g={self.treble}")
+            # high-shelf boost/cut at 8 kHz
+            parts.append(f"equalizer=f=8000:width_type=o:width=2:g={self.treble:.1f}")
         return ",".join(parts) if parts else None
 
     def play(self, path):
@@ -995,12 +1010,14 @@ function escHtml(s) {
 
 // ── Window controls ──────────────────────────────────────────────────────────
 document.getElementById('closeBtn').addEventListener('click', () => {
-  // /quit handler calls Gtk.main_quit() server-side
   fetch('/quit', { method: 'POST' }).catch(() => {});
   window.close(); // fallback for non-GTK environments
 });
 document.getElementById('minBtn').addEventListener('click', () => {
   fetch('/minimize', { method: 'POST' }).catch(() => {});
+});
+document.getElementById('maxBtn').addEventListener('click', () => {
+  fetch('/maximize', { method: 'POST' }).catch(() => {});
 });
 
 // ── Keyboard shortcuts ───────────────────────────────────────────────────────
@@ -1182,6 +1199,24 @@ class AppHandler(BaseHTTPRequestHandler):
                     pass
             threading.Thread(target=_min, daemon=True).start()
 
+        # ── /maximize ─────────────────────────────────────────────────────────
+        elif self.path == "/maximize":
+            self._ok()
+            def _max():
+                try:
+                    from gi.repository import GLib, Gdk
+                    def _toggle():
+                        if not _gtk_win: return
+                        win_state = _gtk_win.get_window().get_state()
+                        if win_state & Gdk.WindowState.MAXIMIZED:
+                            _gtk_win.unmaximize()
+                        else:
+                            _gtk_win.maximize()
+                    GLib.idle_add(_toggle)
+                except Exception:
+                    pass
+            threading.Thread(target=_max, daemon=True).start()
+
         else:
             self._err(404, "not found")
 
@@ -1226,10 +1261,11 @@ def main():
         # Let the HTML close button work via window.close()
         webview.connect("close", lambda _: win.destroy())
 
-        # Drag window only when clicking inside the 48 px titlebar strip.
-        # -webkit-app-region is ignored by WebKit2GTK, so we gate by Y coordinate.
+        # Drag window only on the titlebar strip (y < 48) AND to the right of the
+        # window-control dots (x > 120).  Clicks on the dots fall through to WebKit
+        # so the JS event listeners on closeBtn / minBtn / maxBtn fire normally.
         def on_press(widget, event):
-            if event.button == 1 and event.y < 48:
+            if event.button == 1 and event.y < 48 and event.x > 120:
                 win.begin_move_drag(
                     event.button, int(event.x_root), int(event.y_root), event.time
                 )
