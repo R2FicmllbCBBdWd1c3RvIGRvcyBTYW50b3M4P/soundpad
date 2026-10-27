@@ -8,9 +8,9 @@ import urllib.parse
 import urllib.request
 import urllib.error
 import uuid
-import webbrowser
-from http.server import HTTPServer, BaseHTTPRequestHandler
 import shutil
+import socket
+from http.server import HTTPServer, BaseHTTPRequestHandler
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_PATH = os.path.join(BASE_DIR, "config.json")
@@ -129,130 +129,146 @@ HTML = """<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <title>Phantom Soundpad</title>
 <style>
     :root {
-        --accent: #ff3333;
-        --glass-bg: rgba(25, 5, 5, 0.5);
-        --glass-border: rgba(255, 60, 60, 0.15);
-        --text-muted: #aa8888;
+        --accent: #ff2222;
+        --accent-glow: rgba(255, 34, 34, 0.4);
+        --glass-bg: rgba(15, 0, 0, 0.6);
+        --glass-border: rgba(255, 34, 34, 0.2);
+        --text-main: #ffffff;
+        --text-muted: #cc9999;
     }
-    * { box-sizing: border-box; user-select: none; }
+    * { box-sizing: border-box; user-select: none; -webkit-user-drag: none; }
     
-    /* Fundo Cyberpunk Vermelho */
+    /* Fundo Cyberpunk Vermelho com Grid */
     body {
         font-family: 'Segoe UI', system-ui, sans-serif;
         margin: 0; height: 100vh; overflow: hidden;
         background-color: #050000;
         background-image: 
-            linear-gradient(rgba(255, 0, 0, 0.05) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(255, 0, 0, 0.05) 1px, transparent 1px),
+            linear-gradient(rgba(255, 0, 0, 0.07) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255, 0, 0, 0.07) 1px, transparent 1px),
             radial-gradient(circle at 50% 50%, rgba(80, 0, 0, 0.4) 0%, #050000 80%);
-        background-size: 40px 40px, 40px 40px, 100% 100%;
-        background-position: center center, center center, center center;
-        
-        color: #fff; display: flex; align-items: center; justify-content: center;
+        background-size: 30px 30px, 30px 30px, 100% 100%;
+        background-position: center;
+        color: var(--text-main); display: flex; align-items: center; justify-content: center;
     }
 
-    /* Vidro Fosco */
+    /* Painel de Vidro (Glassmorphism) */
     .app-container {
-        width: 90vw; height: 90vh; max-width: 1000px; max-height: 800px;
+        width: 92vw; height: 92vh; max-width: 1100px; max-height: 850px;
         background: var(--glass-bg);
-        backdrop-filter: blur(24px) saturate(150%);
-        -webkit-backdrop-filter: blur(24px) saturate(150%);
+        backdrop-filter: blur(20px) saturate(150%);
+        -webkit-backdrop-filter: blur(20px) saturate(150%);
         border-radius: 16px;
         border: 1px solid var(--glass-border);
         box-shadow: 
-            0 32px 64px rgba(0, 0, 0, 0.8),
-            inset 0 1px 0 rgba(255, 100, 100, 0.1),
-            inset 0 0 40px rgba(255, 0, 0, 0.05);
+            0 30px 60px rgba(0, 0, 0, 0.9),
+            inset 0 1px 0 rgba(255, 80, 80, 0.1),
+            inset 0 0 50px rgba(255, 0, 0, 0.05);
         display: flex; flex-direction: column;
-        overflow: hidden;
-        position: relative;
+        overflow: hidden; position: relative;
     }
 
-    /* Custom Title Bar */
+    /* Barra de Título (Arrastável) */
     .titlebar {
-        height: 48px; background: rgba(0,0,0,0.3);
-        display: flex; align-items: center; padding: 0 20px;
-        font-weight: 600; font-size: 0.9em; letter-spacing: 1px;
-        border-bottom: 1px solid rgba(255, 50, 50, 0.1);
-        text-transform: uppercase; color: #ff8888;
+        height: 50px; background: rgba(0,0,0,0.4);
+        display: flex; align-items: center; padding: 0 24px;
+        border-bottom: 1px solid rgba(255, 50, 50, 0.15);
     }
-    .titlebar span { flex: 1; text-align: center; margin-left: -48px; }
+    .titlebar span { 
+        flex: 1; text-align: center; font-weight: 700; 
+        font-size: 0.85em; letter-spacing: 2px; text-transform: uppercase;
+        color: #ff8888; text-shadow: 0 0 10px var(--accent-glow); margin-left: -24px;
+    }
     .close-btn {
-        width: 14px; height: 14px; border-radius: 50%; background: var(--accent);
-        cursor: pointer; box-shadow: 0 0 10px var(--accent); transition: 0.2s;
+        width: 16px; height: 16px; border-radius: 50%; background: var(--accent);
+        cursor: pointer; box-shadow: 0 0 12px var(--accent); transition: all 0.2s;
+        border: 1px solid rgba(255,255,255,0.2);
     }
-    .close-btn:hover { transform: scale(1.2); box-shadow: 0 0 15px var(--accent); }
+    .close-btn:hover { transform: scale(1.15); box-shadow: 0 0 20px var(--accent); }
 
-    /* Tabs */
-    .tabs { display: flex; gap: 8px; padding: 20px 24px 0; }
+    /* Abas */
+    .tabs { display: flex; gap: 12px; padding: 24px 32px 0; }
     .tab {
-        padding: 10px 24px; background: transparent; border-radius: 10px; cursor: pointer;
+        padding: 12px 28px; background: transparent; border-radius: 10px; cursor: pointer;
         font-weight: 600; color: var(--text-muted); transition: all 0.3s ease;
+        font-size: 0.95em; border: 1px solid transparent;
     }
-    .tab:hover { background: rgba(255, 50, 50, 0.05); color: #fff; }
+    .tab:hover { background: rgba(255, 34, 34, 0.05); color: var(--text-main); }
     .tab.active {
-        background: rgba(255, 50, 50, 0.15); color: #fff;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255, 100, 100, 0.2);
-        border: 1px solid rgba(255, 50, 50, 0.3);
-        text-shadow: 0 0 8px rgba(255, 50, 50, 0.5);
+        background: rgba(255, 34, 34, 0.15); color: var(--text-main);
+        box-shadow: 0 4px 15px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255, 100, 100, 0.2);
+        border: 1px solid var(--glass-border);
     }
 
-    /* Content */
-    .content { flex: 1; padding: 24px; display: flex; flex-direction: column; overflow: hidden; }
+    /* Conteúdo */
+    .content { flex: 1; padding: 24px 32px; display: flex; flex-direction: column; overflow: hidden; }
     .panel { display: none; flex-direction: column; height: 100%; animation: fadeIn 0.3s ease; }
     .panel.active { display: flex; }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
 
-    /* Search Bar & Buttons */
-    .search-container { position: relative; margin-bottom: 16px; display: flex; gap: 12px; }
+    /* Busca e Botões */
+    .search-container { position: relative; margin-bottom: 20px; display: flex; gap: 12px; }
     #search {
-        flex: 1; padding: 14px 20px; background: rgba(0,0,0,0.4);
-        border: 1px solid rgba(255, 50, 50, 0.1); border-radius: 12px;
-        color: #fff; outline: none; font-size: 0.95em; transition: 0.3s;
+        flex: 1; padding: 16px 24px; background: rgba(0,0,0,0.5);
+        border: 1px solid var(--glass-border); border-radius: 12px;
+        color: var(--text-main); outline: none; font-size: 1em; transition: 0.3s;
     }
-    #search:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(255, 50, 50, 0.15); }
+    #search:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
 
     button {
-        padding: 14px 24px; background: rgba(255, 50, 50, 0.1); color: #ff8888;
-        border: 1px solid rgba(255, 50, 50, 0.2); border-radius: 12px;
-        cursor: pointer; font-weight: 600; transition: all 0.2s; display: flex; align-items: center; gap: 8px;
+        padding: 16px 28px; background: rgba(255, 34, 34, 0.1); color: #ff7777;
+        border: 1px solid rgba(255, 34, 34, 0.3); border-radius: 12px;
+        cursor: pointer; font-weight: 600; transition: all 0.2s;
+        display: flex; align-items: center; gap: 8px; text-transform: uppercase; font-size: 0.85em; letter-spacing: 1px;
     }
-    button:hover { background: rgba(255, 50, 50, 0.2); color: #fff; box-shadow: 0 0 15px rgba(255,50,50,0.3); }
+    button:hover { background: rgba(255, 34, 34, 0.2); color: #fff; box-shadow: 0 0 15px var(--accent-glow); }
     button:active { transform: translateY(1px); }
 
-    /* Sound List */
-    .sound-list { flex: 1; overflow-y: auto; padding-right: 8px; }
-    .sound-list::-webkit-scrollbar { width: 6px; }
-    .sound-list::-webkit-scrollbar-thumb { background: rgba(255, 50, 50, 0.3); border-radius: 10px; }
+    /* Lista de Sons */
+    .sound-list { flex: 1; overflow-y: auto; padding-right: 10px; }
+    .sound-list::-webkit-scrollbar { width: 8px; }
+    .sound-list::-webkit-scrollbar-thumb { background: rgba(255, 34, 34, 0.4); border-radius: 10px; }
     .sound-list::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+    .sound-list::-webkit-scrollbar-track { background: transparent; }
     
     .sound {
-        padding: 16px 20px; background: rgba(255,255,255,0.02); margin-bottom: 8px;
+        padding: 18px 24px; background: rgba(255,255,255,0.02); margin-bottom: 10px;
         border-radius: 12px; cursor: pointer; display: flex; align-items: center;
         border: 1px solid transparent; transition: all 0.2s;
     }
-    .sound:hover { background: rgba(255, 50, 50, 0.08); border-color: rgba(255, 50, 50, 0.2); transform: scale(1.01); }
-    .sound::before { content: '▶'; margin-right: 16px; font-size: 0.8em; color: var(--accent); text-shadow: 0 0 8px var(--accent); }
+    .sound:hover { 
+        background: rgba(255, 34, 34, 0.08); border-color: rgba(255, 34, 34, 0.3); 
+        transform: translateX(5px); 
+    }
+    .sound::before { 
+        content: '▶'; margin-right: 20px; font-size: 1em; color: var(--accent); 
+        text-shadow: 0 0 10px var(--accent); 
+    }
 
     /* Sliders */
-    .slider-group { margin-bottom: 24px; }
-    .slider-header { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.9em; font-weight: 500; color: #ffaaaa; }
+    .slider-group { margin-bottom: 32px; }
+    .slider-header { 
+        display: flex; justify-content: space-between; margin-bottom: 12px; 
+        font-size: 0.9em; font-weight: 700; color: #ffaaaa; text-transform: uppercase; letter-spacing: 1px;
+    }
     input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; }
     input[type=range]::-webkit-slider-runnable-track {
-        width: 100%; height: 6px; background: rgba(0,0,0,0.6); border-radius: 4px;
-        border: 1px solid rgba(255, 50, 50, 0.1);
+        width: 100%; height: 8px; background: rgba(0,0,0,0.6); border-radius: 4px;
+        border: 1px solid rgba(255, 34, 34, 0.2);
     }
     input[type=range]::-webkit-slider-thumb {
-        -webkit-appearance: none; height: 18px; width: 18px; border-radius: 50%;
-        background: var(--accent); margin-top: -7px; box-shadow: 0 0 10px var(--accent); cursor: pointer;
-        transition: transform 0.1s;
+        -webkit-appearance: none; height: 22px; width: 22px; border-radius: 50%;
+        background: #fff; margin-top: -8px; 
+        box-shadow: 0 0 15px var(--accent), inset 0 0 5px rgba(0,0,0,0.5); 
+        cursor: pointer; transition: transform 0.1s;
     }
-    input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+    input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); background: var(--accent); }
 
-    .reset-btn { width: 100%; justify-content: center; background: transparent; border-color: rgba(255, 255, 255, 0.1); color: #ccc; margin-top: 10px; }
+    .reset-btn { width: 100%; justify-content: center; background: transparent; border-color: rgba(255, 255, 255, 0.1); color: #ccc; margin-top: 20px; }
     .reset-btn:hover { background: rgba(255, 255, 255, 0.05); color: #fff; box-shadow: none; border-color: rgba(255, 255, 255, 0.3); }
     
     #fileInput { display: none; }
@@ -260,7 +276,7 @@ HTML = """<!DOCTYPE html>
 </head>
 <body>
 <div class="app-container">
-    <div class="titlebar">
+    <div class="titlebar" id="titlebar">
         <div class="close-btn" onclick="window.close()"></div>
         <span>Phantom Soundpad</span>
     </div>
@@ -333,7 +349,7 @@ function setV(k,v){
     const idx = ['volume','pitch','speed','bass','treble'].indexOf(k);
     const label = document.getElementById('v'+idx);
     if(k === 'volume' || k === 'speed') label.textContent = v+'%';
-    else if(k === 'pitch') label.textContent = v + ' semitons';
+    else if(k === 'pitch') label.textContent = v + ' st';
     else label.textContent = v + ' dB';
     fetch('/set',{method:'POST',body:k+'='+v});
 }
@@ -379,6 +395,10 @@ loadSounds();
 </script>
 </body>
 </html>"""
+
+# Servidor que permite reutilizar a porta e não trava se já estiver aberta
+class ReusableHTTPServer(HTTPServer):
+    allow_reuse_address = True
 
 class AppHandler(BaseHTTPRequestHandler):
     def log_message(self, *a): pass
@@ -448,7 +468,7 @@ class AppHandler(BaseHTTPRequestHandler):
             self.end_headers()
 
 def start_server():
-    server = HTTPServer(("127.0.0.1", 8765), AppHandler)
+    server = ReusableHTTPServer(("127.0.0.1", 8765), AppHandler)
     server.serve_forever()
 
 def main():
@@ -457,14 +477,28 @@ def main():
     try:
         import gi
         gi.require_version("Gtk", "3.0")
-        gi.require_version("WebKit2", "4.0")
-        from gi.repository import Gtk, WebKit2, Gdk
+        from gi.repository import Gtk, Gdk
+        
+        # Tenta carregar o WebKit em várias versões (garante compatibilidade)
+        webkit_loaded = False
+        for version in ("4.1", "4.0", "3.0"):
+            try:
+                gi.require_version("WebKit2", version)
+                from gi.repository import WebKit2
+                webkit_loaded = True
+                break
+            except (ValueError, ImportError):
+                continue
+                
+        if not webkit_loaded:
+            raise ImportError("WebKitGTK não encontrado no sistema.")
         
         win = Gtk.Window(title="Soundpad")
-        win.set_default_size(850, 650)
+        win.set_default_size(1000, 750)
         win.set_decorated(False)
+        win.set_position(Gtk.WindowPosition.CENTER)
         
-        # Deixa a janela do GTK transparente pra o CSS aplicar o blur de verdade
+        # Deixa a janela transparente pro CSS funcionar
         screen = win.get_screen()
         visual = screen.get_rgba_visual()
         if visual is not None and screen.is_composited():
@@ -474,19 +508,23 @@ def main():
         webview = WebKit2.WebView()
         webview.set_background_color(Gdk.RGBA(0, 0, 0, 0))
         webview.load_uri("http://127.0.0.1:8765")
-        win.add(webview)
         
+        # Permite arrastar a janela clicando na barra de título customizada
+        def on_button_press(widget, event):
+            if event.button == 1:
+                win.begin_move_drag(event.button, int(event.x_root), int(event.y_root), event.time)
+        webview.connect("button-press-event", on_button_press)
+        
+        win.add(webview)
         win.connect("destroy", Gtk.main_quit)
         win.show_all()
         Gtk.main()
         
     except Exception as e:
-        print(f"WebKitGTK indisponível ({e}). Abrindo no navegador padrão...")
-        webbrowser.open("http://127.0.0.1:8765")
-        try:
-            while True: threading.Event().wait(1)
-        except KeyboardInterrupt:
-            sys.exit(0)
+        print(f"ERRO CRÍTICO: {e}")
+        print("Para a interface nativa (Glassmorphism) funcionar, você precisa do WebKitGTK.")
+        print("Rode: sudo apt install gir1.2-webkit2-4.1")
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()
