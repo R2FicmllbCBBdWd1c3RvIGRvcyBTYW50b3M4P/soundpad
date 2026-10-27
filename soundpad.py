@@ -1,10 +1,4 @@
 #!/usr/bin/env python3
-"""
-Phantom Soundpad — rework completo
-Fixes: window.close() GTK, /set split bug, upload parsing, path traversal guard,
-       AudioContext leak, decodeAudioData promise, /play double-list call,
-       drag-and-drop upload, loading states, playing indicator, error responses.
-"""
 import json
 import os
 import subprocess
@@ -1232,9 +1226,10 @@ def main():
         # Let the HTML close button work via window.close()
         webview.connect("close", lambda _: win.destroy())
 
-        # Drag window by clicking the title bar region
+        # Drag window only when clicking inside the 48 px titlebar strip.
+        # -webkit-app-region is ignored by WebKit2GTK, so we gate by Y coordinate.
         def on_press(widget, event):
-            if event.button == 1:
+            if event.button == 1 and event.y < 48:
                 win.begin_move_drag(
                     event.button, int(event.x_root), int(event.y_root), event.time
                 )
