@@ -132,58 +132,72 @@ HTML = """<!DOCTYPE html>
 <title>Phantom Soundpad</title>
 <style>
     :root {
-        --bg: #0f0c29;
-        --grad1: #302b63;
-        --grad2: #24243e;
-        --accent: #66ccff;
+        --accent: #ff3333;
+        --glass-bg: rgba(25, 5, 5, 0.5);
+        --glass-border: rgba(255, 60, 60, 0.15);
+        --text-muted: #aa8888;
     }
     * { box-sizing: border-box; user-select: none; }
+    
+    /* Fundo Cyberpunk Vermelho */
     body {
         font-family: 'Segoe UI', system-ui, sans-serif;
         margin: 0; height: 100vh; overflow: hidden;
-        background: linear-gradient(135deg, var(--bg), var(--grad1), var(--grad2));
+        background-color: #050000;
+        background-image: 
+            linear-gradient(rgba(255, 0, 0, 0.05) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255, 0, 0, 0.05) 1px, transparent 1px),
+            radial-gradient(circle at 50% 50%, rgba(80, 0, 0, 0.4) 0%, #050000 80%);
+        background-size: 40px 40px, 40px 40px, 100% 100%;
+        background-position: center center, center center, center center;
+        
         color: #fff; display: flex; align-items: center; justify-content: center;
     }
-    
-    /* Glassmorphism Panel */
+
+    /* Vidro Fosco */
     .app-container {
         width: 90vw; height: 90vh; max-width: 1000px; max-height: 800px;
-        background: rgba(255, 255, 255, 0.03);
+        background: var(--glass-bg);
         backdrop-filter: blur(24px) saturate(150%);
         -webkit-backdrop-filter: blur(24px) saturate(150%);
-        border-radius: 24px;
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        box-shadow: 0 24px 64px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        border-radius: 16px;
+        border: 1px solid var(--glass-border);
+        box-shadow: 
+            0 32px 64px rgba(0, 0, 0, 0.8),
+            inset 0 1px 0 rgba(255, 100, 100, 0.1),
+            inset 0 0 40px rgba(255, 0, 0, 0.05);
         display: flex; flex-direction: column;
         overflow: hidden;
+        position: relative;
     }
 
     /* Custom Title Bar */
     .titlebar {
-        height: 48px; background: rgba(0,0,0,0.2);
-        -webkit-app-region: drag;
+        height: 48px; background: rgba(0,0,0,0.3);
         display: flex; align-items: center; padding: 0 20px;
-        font-weight: 600; font-size: 0.9em; letter-spacing: 0.5px;
-        border-bottom: 1px solid rgba(255,255,255,0.05);
+        font-weight: 600; font-size: 0.9em; letter-spacing: 1px;
+        border-bottom: 1px solid rgba(255, 50, 50, 0.1);
+        text-transform: uppercase; color: #ff8888;
     }
     .titlebar span { flex: 1; text-align: center; margin-left: -48px; }
     .close-btn {
-        width: 14px; height: 14px; border-radius: 50%; background: #ff5f56;
-        cursor: pointer; box-shadow: 0 0 8px rgba(255,95,86,0.4); transition: 0.2s;
+        width: 14px; height: 14px; border-radius: 50%; background: var(--accent);
+        cursor: pointer; box-shadow: 0 0 10px var(--accent); transition: 0.2s;
     }
-    .close-btn:hover { transform: scale(1.1); }
+    .close-btn:hover { transform: scale(1.2); box-shadow: 0 0 15px var(--accent); }
 
     /* Tabs */
     .tabs { display: flex; gap: 8px; padding: 20px 24px 0; }
     .tab {
-        padding: 10px 24px; background: transparent; border-radius: 12px; cursor: pointer;
-        font-weight: 600; color: rgba(255,255,255,0.5); transition: all 0.3s ease;
+        padding: 10px 24px; background: transparent; border-radius: 10px; cursor: pointer;
+        font-weight: 600; color: var(--text-muted); transition: all 0.3s ease;
     }
-    .tab:hover { background: rgba(255,255,255,0.05); color: #fff; }
+    .tab:hover { background: rgba(255, 50, 50, 0.05); color: #fff; }
     .tab.active {
-        background: rgba(255,255,255,0.1); color: #fff;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.1);
-        border: 1px solid rgba(255,255,255,0.05);
+        background: rgba(255, 50, 50, 0.15); color: #fff;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255, 100, 100, 0.2);
+        border: 1px solid rgba(255, 50, 50, 0.3);
+        text-shadow: 0 0 8px rgba(255, 50, 50, 0.5);
     }
 
     /* Content */
@@ -192,57 +206,54 @@ HTML = """<!DOCTYPE html>
     .panel.active { display: flex; }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
 
-    /* Search Bar */
+    /* Search Bar & Buttons */
     .search-container { position: relative; margin-bottom: 16px; display: flex; gap: 12px; }
     #search {
-        flex: 1; padding: 14px 20px; background: rgba(0,0,0,0.3);
-        border: 1px solid rgba(255,255,255,0.05); border-radius: 14px;
+        flex: 1; padding: 14px 20px; background: rgba(0,0,0,0.4);
+        border: 1px solid rgba(255, 50, 50, 0.1); border-radius: 12px;
         color: #fff; outline: none; font-size: 0.95em; transition: 0.3s;
     }
-    #search:focus { border-color: var(--accent); background: rgba(0,0,0,0.4); box-shadow: 0 0 0 3px rgba(102,204,255,0.15); }
+    #search:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(255, 50, 50, 0.15); }
 
-    /* Buttons */
     button {
-        padding: 14px 24px; background: rgba(255,255,255,0.08); color: #fff;
-        border: 1px solid rgba(255,255,255,0.1); border-radius: 14px;
+        padding: 14px 24px; background: rgba(255, 50, 50, 0.1); color: #ff8888;
+        border: 1px solid rgba(255, 50, 50, 0.2); border-radius: 12px;
         cursor: pointer; font-weight: 600; transition: all 0.2s; display: flex; align-items: center; gap: 8px;
     }
-    button:hover { background: rgba(255,255,255,0.15); transform: translateY(-1px); }
+    button:hover { background: rgba(255, 50, 50, 0.2); color: #fff; box-shadow: 0 0 15px rgba(255,50,50,0.3); }
     button:active { transform: translateY(1px); }
 
     /* Sound List */
     .sound-list { flex: 1; overflow-y: auto; padding-right: 8px; }
     .sound-list::-webkit-scrollbar { width: 6px; }
-    .sound-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 10px; }
-    .sound-list::-webkit-scrollbar-track { background: transparent; }
+    .sound-list::-webkit-scrollbar-thumb { background: rgba(255, 50, 50, 0.3); border-radius: 10px; }
+    .sound-list::-webkit-scrollbar-thumb:hover { background: var(--accent); }
     
     .sound {
         padding: 16px 20px; background: rgba(255,255,255,0.02); margin-bottom: 8px;
-        border-radius: 14px; cursor: pointer; display: flex; align-items: center;
+        border-radius: 12px; cursor: pointer; display: flex; align-items: center;
         border: 1px solid transparent; transition: all 0.2s;
     }
-    .sound:hover { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.1); transform: scale(1.01); }
-    .sound::before { content: '▶'; margin-right: 16px; font-size: 0.8em; color: var(--accent); opacity: 0.8; }
+    .sound:hover { background: rgba(255, 50, 50, 0.08); border-color: rgba(255, 50, 50, 0.2); transform: scale(1.01); }
+    .sound::before { content: '▶'; margin-right: 16px; font-size: 0.8em; color: var(--accent); text-shadow: 0 0 8px var(--accent); }
 
     /* Sliders */
     .slider-group { margin-bottom: 24px; }
-    .slider-header { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.9em; font-weight: 500; color: rgba(255,255,255,0.8); }
-    input[type=range] {
-        -webkit-appearance: none; width: 100%; background: transparent;
-    }
+    .slider-header { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.9em; font-weight: 500; color: #ffaaaa; }
+    input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; }
     input[type=range]::-webkit-slider-runnable-track {
-        width: 100%; height: 6px; background: rgba(0,0,0,0.4); border-radius: 4px;
-        border: 1px solid rgba(255,255,255,0.05);
+        width: 100%; height: 6px; background: rgba(0,0,0,0.6); border-radius: 4px;
+        border: 1px solid rgba(255, 50, 50, 0.1);
     }
     input[type=range]::-webkit-slider-thumb {
         -webkit-appearance: none; height: 18px; width: 18px; border-radius: 50%;
-        background: #fff; margin-top: -7px; box-shadow: 0 0 10px rgba(0,0,0,0.5); cursor: pointer;
+        background: var(--accent); margin-top: -7px; box-shadow: 0 0 10px var(--accent); cursor: pointer;
         transition: transform 0.1s;
     }
     input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
 
-    .reset-btn { width: 100%; justify-content: center; background: rgba(255, 95, 86, 0.1); border-color: rgba(255, 95, 86, 0.3); margin-top: 10px; }
-    .reset-btn:hover { background: rgba(255, 95, 86, 0.2); }
+    .reset-btn { width: 100%; justify-content: center; background: transparent; border-color: rgba(255, 255, 255, 0.1); color: #ccc; margin-top: 10px; }
+    .reset-btn:hover { background: rgba(255, 255, 255, 0.05); color: #fff; box-shadow: none; border-color: rgba(255, 255, 255, 0.3); }
     
     #fileInput { display: none; }
 </style>
@@ -256,7 +267,7 @@ HTML = """<!DOCTYPE html>
     
     <div class="tabs">
         <div class="tab active" onclick="tab('sons',this)">Sons</div>
-        <div class="tab" onclick="tab('som',this)">Ajustes de Áudio</div>
+        <div class="tab" onclick="tab('som',this)">Ajustes</div>
     </div>
 
     <div class="content">
@@ -336,7 +347,6 @@ async function uploadFile() {
     const file = document.getElementById('fileInput').files[0];
     if(!file) return;
     
-    // Validação de duração via Web Audio API
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     const buffer = await file.arrayBuffer();
     audioCtx.decodeAudioData(buffer, async (decoded) => {
@@ -353,7 +363,7 @@ async function uploadFile() {
             if(res.ok) {
                 loadSounds();
             } else {
-                alert("Erro no upload. Verifique o terminal.");
+                alert("Erro no upload.");
             }
         } catch(e) {
             alert("Erro de rede no upload.");
@@ -417,14 +427,12 @@ class AppHandler(BaseHTTPRequestHandler):
             self.end_headers()
             
         elif self.path == "/upload":
-            # Parse multipart data manualmente (simplificado)
             body = self.rfile.read(n)
             boundary = self.headers.get("Content-Type").split("boundary=")[1].encode()
             parts = body.split(b"--" + boundary)
             for part in parts:
                 if b'filename="' in part:
                     fname = part.split(b'filename="')[1].split(b'"')[0].decode()
-                    # O conteúdo começa depois do \r\n\r\n e termina antes do \r\n final
                     file_data = part.split(b"\r\n\r\n")[1][:-2]
                     
                     tmp_path = os.path.join(CACHE_DIR, fname)
@@ -446,7 +454,6 @@ def start_server():
 def main():
     threading.Thread(target=start_server, daemon=True).start()
     
-    # Tenta abrir em uma janela nativa usando WebKitGTK
     try:
         import gi
         gi.require_version("Gtk", "3.0")
@@ -457,7 +464,7 @@ def main():
         win.set_default_size(850, 650)
         win.set_decorated(False)
         
-        # Tenta deixar o fundo da janela transparente pro Glassmorphism
+        # Deixa a janela do GTK transparente pra o CSS aplicar o blur de verdade
         screen = win.get_screen()
         visual = screen.get_rgba_visual()
         if visual is not None and screen.is_composited():
@@ -465,7 +472,7 @@ def main():
             win.set_app_paintable(True)
         
         webview = WebKit2.WebView()
-        webview.set_background_color(Gdk.RGBA(0, 0, 0, 0)) # Transparente
+        webview.set_background_color(Gdk.RGBA(0, 0, 0, 0))
         webview.load_uri("http://127.0.0.1:8765")
         win.add(webview)
         
@@ -474,7 +481,6 @@ def main():
         Gtk.main()
         
     except Exception as e:
-        # Fallback: Se não tiver WebKit, abre no navegador
         print(f"WebKitGTK indisponível ({e}). Abrindo no navegador padrão...")
         webbrowser.open("http://127.0.0.1:8765")
         try:
