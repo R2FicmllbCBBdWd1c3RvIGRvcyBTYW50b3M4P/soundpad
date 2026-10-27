@@ -9,7 +9,6 @@ import urllib.request
 import urllib.error
 import uuid
 import shutil
-import socket
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -103,9 +102,12 @@ class AudioEngine:
             parts.append("asetrate=44100*{:.4f}".format(ratio))
             parts.append("aresample=44100")
             parts.append("atempo={:.4f}".format(1 / ratio))
-        if self.speed != 1.0: parts.append(f"atempo={self.speed:.4f}")
-        if self.bass != 0: parts.append(f"bass=g={self.bass}")
-        if self.treble != 0: parts.append(f"treble=g={self.treble}")
+        if self.speed != 1.0: 
+            parts.append(f"atempo={self.speed:.4f}")
+        if self.bass != 0: 
+            parts.append(f"bass=g={self.bass}")
+        if self.treble != 0: 
+            parts.append(f"treble=g={self.treble}")
         return ",".join(parts) if parts else None
 
     def play(self, path):
@@ -118,13 +120,16 @@ class AudioEngine:
             self._raw(path)
 
     def _raw(self, path):
-        if self.player == "pw-play": subprocess.Popen(["pw-play", f"--volume={self.volume}", path])
-        elif self.player == "paplay": subprocess.Popen(["paplay", f"--volume={int(self.volume * 65536)}", path])
-        elif self.player == "aplay": subprocess.Popen(["aplay", "-q", path])
+        if self.player == "pw-play": 
+            subprocess.Popen(["pw-play", f"--volume={self.volume}", path])
+        elif self.player == "paplay": 
+            subprocess.Popen(["paplay", f"--volume={int(self.volume * 65536)}", path])
+        elif self.player == "aplay": 
+            subprocess.Popen(["aplay", "-q", path])
 
 audio = AudioEngine()
 
-# ========== WEB SERVER & API ==========
+# ========== WEB SERVER & UI ==========
 HTML = """<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -133,145 +138,381 @@ HTML = """<!DOCTYPE html>
 <title>Phantom Soundpad</title>
 <style>
     :root {
-        --accent: #ff2222;
-        --accent-glow: rgba(255, 34, 34, 0.4);
-        --glass-bg: rgba(15, 0, 0, 0.6);
-        --glass-border: rgba(255, 34, 34, 0.2);
+        --accent: #ff1a1a;
+        --accent-hover: #ff4444;
+        --accent-glow: rgba(255, 26, 26, 0.5);
+        --bg-dark: #050000;
         --text-main: #ffffff;
-        --text-muted: #cc9999;
+        --text-muted: #a38b8b;
+        --glass-bg: rgba(15, 0, 0, 0.65);
+        --glass-border: rgba(255, 26, 26, 0.15);
     }
-    * { box-sizing: border-box; user-select: none; -webkit-user-drag: none; }
     
-    /* Fundo Cyberpunk Vermelho com Grid */
+    * { 
+        box-sizing: border-box; 
+        user-select: none; 
+        -webkit-user-drag: none; 
+        outline: none;
+    }
+    
+    /* Fundo Cyberpunk Vermelho com Grid Cirúrgico */
     body {
-        font-family: 'Segoe UI', system-ui, sans-serif;
-        margin: 0; height: 100vh; overflow: hidden;
-        background-color: #050000;
+        font-family: 'Segoe UI', -apple-system, system-ui, sans-serif;
+        margin: 0; 
+        height: 100vh; 
+        overflow: hidden;
+        background-color: var(--bg-dark);
         background-image: 
-            linear-gradient(rgba(255, 0, 0, 0.07) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(255, 0, 0, 0.07) 1px, transparent 1px),
-            radial-gradient(circle at 50% 50%, rgba(80, 0, 0, 0.4) 0%, #050000 80%);
-        background-size: 30px 30px, 30px 30px, 100% 100%;
+            linear-gradient(rgba(255, 26, 26, 0.05) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255, 26, 26, 0.05) 1px, transparent 1px),
+            radial-gradient(circle at 50% 50%, rgba(80, 0, 0, 0.6) 0%, var(--bg-dark) 80%);
+        background-size: 50px 50px, 50px 50px, 100% 100%;
         background-position: center;
-        color: var(--text-main); display: flex; align-items: center; justify-content: center;
+        color: var(--text-main); 
+        display: flex; 
+        align-items: center; 
+        justify-content: center;
     }
 
-    /* Painel de Vidro (Glassmorphism) */
+    /* Container Principal (O Vidro Fumê Vermelho) */
     .app-container {
-        width: 92vw; height: 92vh; max-width: 1100px; max-height: 850px;
+        width: 92vw; 
+        height: 92vh; 
+        max-width: 1100px; 
+        max-height: 800px;
         background: var(--glass-bg);
-        backdrop-filter: blur(20px) saturate(150%);
-        -webkit-backdrop-filter: blur(20px) saturate(150%);
-        border-radius: 16px;
+        /* O verdadeiro Glassmorphism */
+        backdrop-filter: blur(24px) saturate(150%);
+        -webkit-backdrop-filter: blur(24px) saturate(150%);
+        border-radius: 20px;
         border: 1px solid var(--glass-border);
         box-shadow: 
-            0 30px 60px rgba(0, 0, 0, 0.9),
-            inset 0 1px 0 rgba(255, 80, 80, 0.1),
-            inset 0 0 50px rgba(255, 0, 0, 0.05);
-        display: flex; flex-direction: column;
-        overflow: hidden; position: relative;
+            0 40px 80px rgba(0, 0, 0, 0.9), 
+            inset 0 1px 0 rgba(255, 100, 100, 0.15),
+            inset 0 0 60px rgba(255, 0, 0, 0.05);
+        display: flex; 
+        flex-direction: column;
+        overflow: hidden;
+        position: relative;
     }
 
-    /* Barra de Título (Arrastável) */
+    /* Brilho sutil na borda superior do vidro */
+    .app-container::before {
+        content: '';
+        position: absolute;
+        top: 0; left: 0; right: 0; height: 1px;
+        background: linear-gradient(90deg, transparent, rgba(255, 50, 50, 0.5), transparent);
+        z-index: 10;
+    }
+
+    /* Barra de Título (Arrastável pelo GTK) */
     .titlebar {
-        height: 50px; background: rgba(0,0,0,0.4);
-        display: flex; align-items: center; padding: 0 24px;
-        border-bottom: 1px solid rgba(255, 50, 50, 0.15);
+        height: 52px; 
+        background: rgba(0, 0, 0, 0.4);
+        display: flex; 
+        align-items: center; 
+        padding: 0 24px;
+        border-bottom: 1px solid rgba(255, 26, 26, 0.1);
+        -webkit-app-region: drag;
     }
+    
     .titlebar span { 
-        flex: 1; text-align: center; font-weight: 700; 
-        font-size: 0.85em; letter-spacing: 2px; text-transform: uppercase;
-        color: #ff8888; text-shadow: 0 0 10px var(--accent-glow); margin-left: -24px;
+        flex: 1; 
+        text-align: center; 
+        font-weight: 800; 
+        font-size: 0.9em; 
+        letter-spacing: 3px; 
+        text-transform: uppercase;
+        color: #ff9999; 
+        text-shadow: 0 0 15px var(--accent-glow);
+        margin-left: -16px; /* Compensa o botão de fechar */
     }
+    
     .close-btn {
-        width: 16px; height: 16px; border-radius: 50%; background: var(--accent);
-        cursor: pointer; box-shadow: 0 0 12px var(--accent); transition: all 0.2s;
-        border: 1px solid rgba(255,255,255,0.2);
+        width: 16px; 
+        height: 16px; 
+        border-radius: 50%; 
+        background: var(--accent);
+        cursor: pointer; 
+        box-shadow: 0 0 15px var(--accent); 
+        transition: all 0.2s ease;
+        border: 1px solid rgba(255,255,255,0.3);
     }
-    .close-btn:hover { transform: scale(1.15); box-shadow: 0 0 20px var(--accent); }
+    
+    .close-btn:hover { 
+        transform: scale(1.2); 
+        background: var(--accent-hover);
+        box-shadow: 0 0 25px var(--accent-hover); 
+    }
 
-    /* Abas */
-    .tabs { display: flex; gap: 12px; padding: 24px 32px 0; }
+    /* Sistema de Abas */
+    .tabs { 
+        display: flex; 
+        gap: 12px; 
+        padding: 24px 32px 0; 
+    }
+    
     .tab {
-        padding: 12px 28px; background: transparent; border-radius: 10px; cursor: pointer;
-        font-weight: 600; color: var(--text-muted); transition: all 0.3s ease;
-        font-size: 0.95em; border: 1px solid transparent;
+        padding: 14px 28px; 
+        background: transparent; 
+        border-radius: 12px; 
+        cursor: pointer;
+        font-weight: 700; 
+        color: var(--text-muted); 
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        font-size: 0.95em; 
+        border: 1px solid transparent;
+        letter-spacing: 0.5px;
     }
-    .tab:hover { background: rgba(255, 34, 34, 0.05); color: var(--text-main); }
+    
+    .tab:hover { 
+        background: rgba(255, 26, 26, 0.08); 
+        color: var(--text-main); 
+    }
+    
     .tab.active {
-        background: rgba(255, 34, 34, 0.15); color: var(--text-main);
-        box-shadow: 0 4px 15px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255, 100, 100, 0.2);
+        background: rgba(255, 26, 26, 0.15); 
+        color: var(--text-main);
+        box-shadow: 
+            0 4px 20px rgba(0,0,0,0.5), 
+            inset 0 1px 0 rgba(255, 100, 100, 0.3);
         border: 1px solid var(--glass-border);
+        text-shadow: 0 0 10px var(--accent-glow);
     }
 
-    /* Conteúdo */
-    .content { flex: 1; padding: 24px 32px; display: flex; flex-direction: column; overflow: hidden; }
-    .panel { display: none; flex-direction: column; height: 100%; animation: fadeIn 0.3s ease; }
-    .panel.active { display: flex; }
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+    /* Área de Conteúdo */
+    .content { 
+        flex: 1; 
+        padding: 24px 32px 32px; 
+        display: flex; 
+        flex-direction: column; 
+        overflow: hidden; 
+    }
+    
+    .panel { 
+        display: none; 
+        flex-direction: column; 
+        height: 100%; 
+        animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1); 
+    }
+    
+    .panel.active { 
+        display: flex; 
+    }
+    
+    @keyframes slideUp { 
+        from { opacity: 0; transform: translateY(10px); } 
+        to { opacity: 1; transform: translateY(0); } 
+    }
 
-    /* Busca e Botões */
-    .search-container { position: relative; margin-bottom: 20px; display: flex; gap: 12px; }
+    /* Barra de Pesquisa */
+    .search-container { 
+        display: flex; 
+        gap: 16px; 
+        margin-bottom: 24px; 
+    }
+    
     #search {
-        flex: 1; padding: 16px 24px; background: rgba(0,0,0,0.5);
-        border: 1px solid var(--glass-border); border-radius: 12px;
-        color: var(--text-main); outline: none; font-size: 1em; transition: 0.3s;
+        flex: 1; 
+        padding: 16px 24px; 
+        background: rgba(0, 0, 0, 0.5);
+        border: 1px solid var(--glass-border); 
+        border-radius: 14px;
+        color: var(--text-main); 
+        font-size: 1em; 
+        transition: all 0.3s ease;
+        box-shadow: inset 0 2px 10px rgba(0,0,0,0.5);
     }
-    #search:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+    
+    #search:focus { 
+        border-color: var(--accent); 
+        box-shadow: 0 0 0 4px var(--accent-glow), inset 0 2px 10px rgba(0,0,0,0.5); 
+        background: rgba(10, 0, 0, 0.7);
+    }
 
+    /* Botões */
     button {
-        padding: 16px 28px; background: rgba(255, 34, 34, 0.1); color: #ff7777;
-        border: 1px solid rgba(255, 34, 34, 0.3); border-radius: 12px;
-        cursor: pointer; font-weight: 600; transition: all 0.2s;
-        display: flex; align-items: center; gap: 8px; text-transform: uppercase; font-size: 0.85em; letter-spacing: 1px;
+        padding: 16px 32px; 
+        background: rgba(255, 26, 26, 0.1); 
+        color: #ff7777;
+        border: 1px solid rgba(255, 26, 26, 0.3); 
+        border-radius: 14px;
+        cursor: pointer; 
+        font-weight: 800; 
+        font-size: 0.9em;
+        transition: all 0.2s ease;
+        display: flex; 
+        align-items: center; 
+        justify-content: center;
+        gap: 10px; 
+        text-transform: uppercase; 
+        letter-spacing: 1px;
+        text-shadow: 0 0 5px rgba(255, 26, 26, 0.5);
     }
-    button:hover { background: rgba(255, 34, 34, 0.2); color: #fff; box-shadow: 0 0 15px var(--accent-glow); }
-    button:active { transform: translateY(1px); }
+    
+    button:hover { 
+        background: rgba(255, 26, 26, 0.25); 
+        color: #fff; 
+        box-shadow: 0 0 20px var(--accent-glow); 
+        transform: translateY(-2px);
+    }
+    
+    button:active { 
+        transform: translateY(1px); 
+        box-shadow: 0 0 10px var(--accent-glow); 
+    }
 
     /* Lista de Sons */
-    .sound-list { flex: 1; overflow-y: auto; padding-right: 10px; }
-    .sound-list::-webkit-scrollbar { width: 8px; }
-    .sound-list::-webkit-scrollbar-thumb { background: rgba(255, 34, 34, 0.4); border-radius: 10px; }
-    .sound-list::-webkit-scrollbar-thumb:hover { background: var(--accent); }
-    .sound-list::-webkit-scrollbar-track { background: transparent; }
+    .sound-list { 
+        flex: 1; 
+        overflow-y: auto; 
+        padding-right: 12px; 
+    }
     
+    .sound-list::-webkit-scrollbar { 
+        width: 8px; 
+    }
+    
+    .sound-list::-webkit-scrollbar-track { 
+        background: rgba(0,0,0,0.3); 
+        border-radius: 10px;
+    }
+    
+    .sound-list::-webkit-scrollbar-thumb { 
+        background: rgba(255, 26, 26, 0.4); 
+        border-radius: 10px; 
+    }
+    
+    .sound-list::-webkit-scrollbar-thumb:hover { 
+        background: var(--accent); 
+    }
+
     .sound {
-        padding: 18px 24px; background: rgba(255,255,255,0.02); margin-bottom: 10px;
-        border-radius: 12px; cursor: pointer; display: flex; align-items: center;
-        border: 1px solid transparent; transition: all 0.2s;
+        padding: 20px 24px; 
+        background: rgba(255, 255, 255, 0.02); 
+        margin-bottom: 12px;
+        border-radius: 14px; 
+        cursor: pointer; 
+        display: flex; 
+        align-items: center;
+        border: 1px solid transparent; 
+        transition: all 0.2s ease;
+        position: relative;
+        overflow: hidden;
     }
+    
+    /* Efeito de hover lateral */
+    .sound::after {
+        content: '';
+        position: absolute;
+        left: 0; top: 0; bottom: 0; width: 4px;
+        background: var(--accent);
+        transform: scaleY(0);
+        transition: transform 0.2s ease;
+        transform-origin: center;
+    }
+
     .sound:hover { 
-        background: rgba(255, 34, 34, 0.08); border-color: rgba(255, 34, 34, 0.3); 
-        transform: translateX(5px); 
+        background: rgba(255, 26, 26, 0.08); 
+        border-color: rgba(255, 26, 26, 0.2); 
+        transform: translateX(6px); 
     }
-    .sound::before { 
-        content: '▶'; margin-right: 20px; font-size: 1em; color: var(--accent); 
-        text-shadow: 0 0 10px var(--accent); 
+    
+    .sound:hover::after {
+        transform: scaleY(1);
+    }
+
+    .sound-icon {
+        margin-right: 20px; 
+        font-size: 1.2em; 
+        color: var(--accent); 
+        text-shadow: 0 0 15px var(--accent);
+        opacity: 0.8;
+    }
+
+    .sound-name {
+        font-weight: 600;
+        font-size: 1.05em;
+        letter-spacing: 0.5px;
     }
 
     /* Sliders */
-    .slider-group { margin-bottom: 32px; }
-    .slider-header { 
-        display: flex; justify-content: space-between; margin-bottom: 12px; 
-        font-size: 0.9em; font-weight: 700; color: #ffaaaa; text-transform: uppercase; letter-spacing: 1px;
+    .slider-group { 
+        margin-bottom: 32px; 
+        background: rgba(0,0,0,0.2);
+        padding: 20px 24px;
+        border-radius: 16px;
+        border: 1px solid rgba(255,255,255,0.02);
     }
-    input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; }
-    input[type=range]::-webkit-slider-runnable-track {
-        width: 100%; height: 8px; background: rgba(0,0,0,0.6); border-radius: 4px;
-        border: 1px solid rgba(255, 34, 34, 0.2);
-    }
-    input[type=range]::-webkit-slider-thumb {
-        -webkit-appearance: none; height: 22px; width: 22px; border-radius: 50%;
-        background: #fff; margin-top: -8px; 
-        box-shadow: 0 0 15px var(--accent), inset 0 0 5px rgba(0,0,0,0.5); 
-        cursor: pointer; transition: transform 0.1s;
-    }
-    input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); background: var(--accent); }
-
-    .reset-btn { width: 100%; justify-content: center; background: transparent; border-color: rgba(255, 255, 255, 0.1); color: #ccc; margin-top: 20px; }
-    .reset-btn:hover { background: rgba(255, 255, 255, 0.05); color: #fff; box-shadow: none; border-color: rgba(255, 255, 255, 0.3); }
     
-    #fileInput { display: none; }
+    .slider-header { 
+        display: flex; 
+        justify-content: space-between; 
+        margin-bottom: 16px; 
+        font-weight: 700; 
+        color: #ffaaaa; 
+        font-size: 0.9em; 
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+    }
+    
+    input[type=range] { 
+        -webkit-appearance: none; 
+        width: 100%; 
+        background: transparent; 
+        height: 24px;
+        display: flex;
+        align-items: center;
+    }
+    
+    input[type=range]::-webkit-slider-runnable-track {
+        width: 100%; 
+        height: 8px; 
+        background: rgba(0, 0, 0, 0.7); 
+        border-radius: 6px; 
+        border: 1px solid rgba(255, 26, 26, 0.2);
+        box-shadow: inset 0 2px 5px rgba(0,0,0,0.8);
+    }
+    
+    input[type=range]::-webkit-slider-thumb {
+        -webkit-appearance: none; 
+        height: 24px; 
+        width: 24px; 
+        border-radius: 50%;
+        background: #fff; 
+        margin-top: -9px; 
+        box-shadow: 
+            0 0 15px var(--accent), 
+            inset 0 0 5px rgba(0,0,0,0.5); 
+        cursor: pointer; 
+        transition: all 0.15s ease;
+        border: 2px solid rgba(255,255,255,0.8);
+    }
+    
+    input[type=range]::-webkit-slider-thumb:hover { 
+        transform: scale(1.3); 
+        background: var(--accent-hover); 
+        box-shadow: 0 0 25px var(--accent-hover);
+    }
+
+    .reset-btn { 
+        width: 100%; 
+        background: transparent; 
+        border-color: rgba(255, 255, 255, 0.1); 
+        color: var(--text-muted); 
+        margin-top: 10px; 
+    }
+    
+    .reset-btn:hover { 
+        background: rgba(255, 255, 255, 0.05); 
+        color: #fff; 
+        box-shadow: none; 
+        border-color: rgba(255, 255, 255, 0.3); 
+    }
+    
+    #fileInput { 
+        display: none; 
+    }
 </style>
 </head>
 <body>
@@ -282,31 +523,33 @@ HTML = """<!DOCTYPE html>
     </div>
     
     <div class="tabs">
-        <div class="tab active" onclick="tab('sons',this)">Sons</div>
-        <div class="tab" onclick="tab('som',this)">Ajustes</div>
+        <div class="tab active" onclick="tab('sons',this)">Biblioteca de Sons</div>
+        <div class="tab" onclick="tab('som',this)">Ajustes de Áudio</div>
     </div>
 
     <div class="content">
         <div id="sons" class="panel active">
             <div class="search-container">
-                <input id="search" placeholder="Pesquisar som..." oninput="render()">
+                <input id="search" placeholder="Pesquisar por um som específico..." oninput="render()">
                 <input type="file" id="fileInput" accept="audio/*" onchange="uploadFile()">
-                <button onclick="document.getElementById('fileInput').click()">+ Adicionar</button>
+                <button onclick="document.getElementById('fileInput').click()">
+                    + Adicionar Som
+                </button>
             </div>
             <div id="list" class="sound-list"></div>
         </div>
 
         <div id="som" class="panel">
             <div class="slider-group">
-                <div class="slider-header"><span>Volume</span><span id="v0">70%</span></div>
+                <div class="slider-header"><span>Volume Principal</span><span id="v0">70%</span></div>
                 <input type="range" min="0" max="100" value="70" oninput="setV('volume',this.value)">
             </div>
             <div class="slider-group">
-                <div class="slider-header"><span>Pitch (Tom)</span><span id="v1">0</span></div>
+                <div class="slider-header"><span>Tom (Pitch)</span><span id="v1">0 st</span></div>
                 <input type="range" min="-12" max="12" value="0" oninput="setV('pitch',this.value)">
             </div>
             <div class="slider-group">
-                <div class="slider-header"><span>Velocidade</span><span id="v2">100%</span></div>
+                <div class="slider-header"><span>Velocidade (Tempo)</span><span id="v2">100%</span></div>
                 <input type="range" min="50" max="200" value="100" oninput="setV('speed',this.value)">
             </div>
             <div class="slider-group">
@@ -317,7 +560,7 @@ HTML = """<!DOCTYPE html>
                 <div class="slider-header"><span>Agudos (Treble)</span><span id="v4">0 dB</span></div>
                 <input type="range" min="-20" max="20" value="0" oninput="setV('treble',this.value)">
             </div>
-            <button class="reset-btn" onclick="reset()">Restaurar Padrões</button>
+            <button class="reset-btn" onclick="reset()">Restaurar Padrões de Fábrica</button>
         </div>
     </div>
 </div>
@@ -333,41 +576,66 @@ function tab(id,el){
 }
 
 function render(){
-    const q=document.getElementById('search').value.toLowerCase();
-    const l=document.getElementById('list');
-    l.innerHTML='';
-    sounds.filter(s=>s.name.toLowerCase().includes(q)).forEach(s=>{
-        const d=document.createElement('div');
-        d.className='sound';
-        d.textContent=s.name.replace(/\\.[^.]+$/,'');
-        d.onclick=()=>fetch('/play',{method:'POST',body:s.name});
+    const q = document.getElementById('search').value.toLowerCase();
+    const l = document.getElementById('list');
+    l.innerHTML = '';
+    
+    sounds.filter(s => s.name.toLowerCase().includes(q)).forEach(s => {
+        const d = document.createElement('div');
+        d.className = 'sound';
+        
+        const icon = document.createElement('div');
+        icon.className = 'sound-icon';
+        icon.textContent = '▶';
+        
+        const name = document.createElement('div');
+        name.className = 'sound-name';
+        name.textContent = s.name.replace(/\\.[^.]+$/,'');
+        
+        d.appendChild(icon);
+        d.appendChild(name);
+        
+        d.onclick = () => {
+            // Feedback visual ao clicar
+            d.style.transform = 'scale(0.98)';
+            setTimeout(() => d.style.transform = '', 100);
+            fetch('/play', {method:'POST', body:s.name});
+        };
+        
         l.appendChild(d);
     });
+    
+    if (sounds.length === 0 || l.children.length === 0) {
+        l.innerHTML = '<div style="text-align:center; padding: 40px; color: var(--text-muted); font-style: italic;">Nenhum som encontrado na biblioteca.</div>';
+    }
 }
 
 function setV(k,v){
     const idx = ['volume','pitch','speed','bass','treble'].indexOf(k);
     const label = document.getElementById('v'+idx);
+    
     if(k === 'volume' || k === 'speed') label.textContent = v+'%';
     else if(k === 'pitch') label.textContent = v + ' st';
     else label.textContent = v + ' dB';
-    fetch('/set',{method:'POST',body:k+'='+v});
+    
+    fetch('/set', {method:'POST', body:k+'='+v});
 }
 
 function reset(){
-    ['70','0','100','0','0'].forEach((v,i)=>setV(['volume','pitch','speed','bass','treble'][i],v));
-    document.querySelectorAll('#som input').forEach((e,i)=>e.value=['70','0','100','0','0'][i]);
+    ['70','0','100','0','0'].forEach((v,i) => setV(['volume','pitch','speed','bass','treble'][i], v));
+    document.querySelectorAll('#som input').forEach((e,i) => e.value = ['70','0','100','0','0'][i]);
 }
 
 async function uploadFile() {
     const file = document.getElementById('fileInput').files[0];
     if(!file) return;
     
+    // Validação local de duração via Web Audio API
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     const buffer = await file.arrayBuffer();
     audioCtx.decodeAudioData(buffer, async (decoded) => {
         if (decoded.duration > 10.5) {
-            alert("O arquivo é muito longo! Máximo 10 segundos.");
+            alert("O arquivo excede o limite de 10 segundos.");
             return;
         }
         
@@ -379,16 +647,22 @@ async function uploadFile() {
             if(res.ok) {
                 loadSounds();
             } else {
-                alert("Erro no upload.");
+                alert("Falha no upload para o servidor.");
             }
         } catch(e) {
-            alert("Erro de rede no upload.");
+            alert("Erro de rede durante o upload.");
         }
     });
 }
 
 function loadSounds(){
-    fetch('/sounds').then(r=>r.json()).then(d=>{ sounds=d; render(); });
+    fetch('/sounds')
+        .then(r => r.json())
+        .then(d => { 
+            sounds = d; 
+            render(); 
+        })
+        .catch(e => console.error("Erro ao buscar sons:", e));
 }
 
 loadSounds();
@@ -396,7 +670,7 @@ loadSounds();
 </body>
 </html>"""
 
-# Servidor que permite reutilizar a porta e não trava se já estiver aberta
+# Servidor que não trava a porta em reinicializações rápidas
 class ReusableHTTPServer(HTTPServer):
     allow_reuse_address = True
 
@@ -424,11 +698,11 @@ class AppHandler(BaseHTTPRequestHandler):
         
         if self.path == "/play":
             body = self.rfile.read(n).decode()
-            sounds = storage.list_sounds()
-            for s in sounds:
+            for s in storage.list_sounds():
                 if s["name"] == body:
                     p = os.path.join(CACHE_DIR, s["name"])
-                    if not os.path.exists(p): storage.download(s["name"], p)
+                    if not os.path.exists(p):
+                        storage.download(s["name"], p)
                     audio.play(p)
                     break
             self.send_response(200)
@@ -438,7 +712,10 @@ class AppHandler(BaseHTTPRequestHandler):
             body = self.rfile.read(n).decode()
             k, v = body.split("=")
             v = float(v)
-            if k == "volume": audio.volume = v/100; cfg["volume"]=audio.volume; save_config(cfg)
+            if k == "volume": 
+                audio.volume = v/100
+                cfg["volume"] = audio.volume
+                save_config(cfg)
             elif k == "pitch": audio.pitch = v
             elif k == "speed": audio.speed = v/100
             elif k == "bass": audio.bass = v
@@ -450,6 +727,7 @@ class AppHandler(BaseHTTPRequestHandler):
             body = self.rfile.read(n)
             boundary = self.headers.get("Content-Type").split("boundary=")[1].encode()
             parts = body.split(b"--" + boundary)
+            
             for part in parts:
                 if b'filename="' in part:
                     fname = part.split(b'filename="')[1].split(b'"')[0].decode()
@@ -462,7 +740,7 @@ class AppHandler(BaseHTTPRequestHandler):
                         storage.upload(tmp_path, fname)
                         os.remove(tmp_path)
                     except Exception as e:
-                        print("Erro upload:", e)
+                        print("Erro no upload:", e)
                     break
             self.send_response(200)
             self.end_headers()
@@ -477,9 +755,9 @@ def main():
     try:
         import gi
         gi.require_version("Gtk", "3.0")
-        from gi.repository import Gtk, Gdk
+        from gi.repository import Gtk
         
-        # Tenta carregar o WebKit em várias versões (garante compatibilidade)
+        # Múltiplas tentativas de versão do WebKit (garante compatibilidade com Mint/Ubuntu)
         webkit_loaded = False
         for version in ("4.1", "4.0", "3.0"):
             try:
@@ -491,22 +769,14 @@ def main():
                 continue
                 
         if not webkit_loaded:
-            raise ImportError("WebKitGTK não encontrado no sistema.")
+            raise ImportError("WebKitGTK não instalado no sistema.")
         
         win = Gtk.Window(title="Soundpad")
         win.set_default_size(1000, 750)
         win.set_decorated(False)
         win.set_position(Gtk.WindowPosition.CENTER)
         
-        # Deixa a janela transparente pro CSS funcionar
-        screen = win.get_screen()
-        visual = screen.get_rgba_visual()
-        if visual is not None and screen.is_composited():
-            win.set_visual(visual)
-            win.set_app_paintable(True)
-        
         webview = WebKit2.WebView()
-        webview.set_background_color(Gdk.RGBA(0, 0, 0, 0))
         webview.load_uri("http://127.0.0.1:8765")
         
         # Permite arrastar a janela clicando na barra de título customizada
@@ -522,8 +792,7 @@ def main():
         
     except Exception as e:
         print(f"ERRO CRÍTICO: {e}")
-        print("Para a interface nativa (Glassmorphism) funcionar, você precisa do WebKitGTK.")
-        print("Rode: sudo apt install gir1.2-webkit2-4.1")
+        print("Para usar a interface gráfica, instale o WebKitGTK.")
         sys.exit(1)
 
 if __name__ == "__main__":
