@@ -39,19 +39,26 @@ def load_config():
 class WorkerStorage:
     def __init__(self, cfg):
         self.base = cfg["worker_url"].rstrip("/")
+        # User-Agent de navegador para o Cloudflare não bloquear com 403
+        self.headers = {
+            "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        }
 
     def list_sounds(self):
+        req = urllib.request.Request(f"{self.base}/sounds", headers=self.headers)
         try:
-            with urllib.request.urlopen(f"{self.base}/sounds", timeout=15) as r:
+            with urllib.request.urlopen(req, timeout=15) as r:
                 return json.loads(r.read())
         except urllib.error.HTTPError as e:
             if e.code == 403:
-                raise RuntimeError("403 Forbidden: Verifique se o GH_TOKEN no Cloudflare é um Secret e tem escopo 'repo'.")
+                raise RuntimeError("403: A Cloudflare bloqueou a requisição. Verifique o WAF.")
             raise
 
     def download(self, name, dest):
         url = f"{self.base}/play/{urllib.parse.quote(name)}"
-        urllib.request.urlretrieve(url, dest)
+        req = urllib.request.Request(url, headers=self.headers)
+        with urllib.request.urlopen(req, timeout=15) as r, open(dest, "wb") as f:
+            f.write(r.read())
         return dest
 
     def upload(self, path):
@@ -65,8 +72,10 @@ class WorkerStorage:
         body += b"Content-Type: application/octet-stream\r\n\r\n"
         body += data + b"\r\n"
         body += f"--{boundary}--\r\n".encode()
-        req = urllib.request.Request(f"{self.base}/upload", data=body, method="POST")
+        
+        req = urllib.request.Request(f"{self.base}/upload", data=body, method="POST", headers=self.headers)
         req.add_header("Content-Type", f"multipart/form-data; boundary={boundary}")
+        
         with urllib.request.urlopen(req, timeout=60) as r:
             return json.loads(r.read())
 
@@ -142,77 +151,22 @@ def run_gtk(cfg):
     gi.require_version("Gtk", "3.0")
     from gi.repository import Gtk, GLib, Gdk
 
-    # Aplicar CSS Glassmorphism
     css = b"""
-    window {
-        background-color: rgba(20, 20, 25, 0.85);
-        border-radius: 12px;
-    }
-    headerbar {
-        background-color: transparent;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-    }
-    notebook {
-        background-color: transparent;
-    }
-    notebook > header {
-        background-color: transparent;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-    }
-    notebook tab {
-        background-color: transparent;
-        border-radius: 6px;
-        margin: 4px;
-    }
-    notebook tab:checked {
-        background-color: rgba(255, 255, 255, 0.1);
-        box-shadow: inset 0 0 8px rgba(255, 255, 255, 0.05);
-    }
-    listbox {
-        background-color: transparent;
-    }
-    listbox row {
-        background-color: rgba(255, 255, 255, 0.03);
-        border-radius: 8px;
-        margin-bottom: 4px;
-        border: 1px solid transparent;
-    }
-    listbox row:hover {
-        background-color: rgba(255, 255, 255, 0.08);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-    }
-    button {
-        background-image: none;
-        background-color: rgba(255, 255, 255, 0.08);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: 8px;
-        box-shadow: none;
-        text-shadow: none;
-        color: #fff;
-        transition: 0.2s;
-    }
-    button:hover {
-        background-color: rgba(255, 255, 255, 0.15);
-    }
-    entry, searchentry {
-        background-color: rgba(0, 0, 0, 0.2);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: 8px;
-        color: #fff;
-    }
-    scale trough {
-        background-color: rgba(0, 0, 0, 0.3);
-        border-radius: 4px;
-    }
-    scale highlight {
-        background-color: #66ccff;
-        border-radius: 4px;
-    }
-    scale slider {
-        background-color: #fff;
-        border-radius: 50%;
-        box-shadow: 0 0 4px rgba(0,0,0,0.5);
-    }
+    window { background-color: rgba(20, 20, 25, 0.85); border-radius: 12px; }
+    headerbar { background-color: transparent; border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
+    notebook { background-color: transparent; }
+    notebook > header { background-color: transparent; border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
+    notebook tab { background-color: transparent; border-radius: 6px; margin: 4px; }
+    notebook tab:checked { background-color: rgba(255, 255, 255, 0.1); box-shadow: inset 0 0 8px rgba(255, 255, 255, 0.05); }
+    listbox { background-color: transparent; }
+    listbox row { background-color: rgba(255, 255, 255, 0.03); border-radius: 8px; margin-bottom: 4px; border: 1px solid transparent; }
+    listbox row:hover { background-color: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.1); }
+    button { background-image: none; background-color: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; box-shadow: none; text-shadow: none; color: #fff; transition: 0.2s; }
+    button:hover { background-color: rgba(255, 255, 255, 0.15); }
+    entry, searchentry { background-color: rgba(0, 0, 0, 0.2); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; color: #fff; }
+    scale trough { background-color: rgba(0, 0, 0, 0.3); border-radius: 4px; }
+    scale highlight { background-color: #66ccff; border-radius: 4px; }
+    scale slider { background-color: #fff; border-radius: 50%; box-shadow: 0 0 4px rgba(0,0,0,0.5); }
     """
     provider = Gtk.CssProvider()
     provider.load_from_data(css)
